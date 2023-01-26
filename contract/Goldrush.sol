@@ -16,7 +16,7 @@ interface IERC20Token {
 
 contract Goldrush {
 
-    uint internal productsLength = 0;
+    uint internal productsLength;
     address internal cUsdTokenAddress = 0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1;
 
     struct Product {
@@ -32,6 +32,11 @@ contract Goldrush {
     event itemDeleted(uint indexed index);
     mapping (uint => Product) internal products;
 
+    modifier onlyOwner(uint _index) {
+        require(msg.sender == products[_index].owner, "not Owner");
+        _;
+    }
+
     function writeProduct(
         string memory _name,
         string memory _image,
@@ -39,7 +44,7 @@ contract Goldrush {
         string memory _location, 
         uint _price
     ) public {
-        uint _sold = 0;
+        uint _sold;
         products[productsLength] = Product(
             payable(msg.sender),
             _name,
@@ -72,17 +77,8 @@ contract Goldrush {
         );
     }
 
-
-        function deleteProduct(uint _index) public {
-        require(products[_index].owner == msg.sender, "You are not the owner of the product.");
-        require(_index < productsLength, "Product not found.");
-        delete products[_index];
-        productsLength--;
-        emit itemDeleted(_index);
-    }
-
-
-    function buyProduct(uint _index) public payable  {
+    function buyProduct(uint _index) public {
+        require(msg.sender != products[_index].owner, "owner can't buy");
         require(
           IERC20Token(cUsdTokenAddress).transferFrom(
             msg.sender,
@@ -92,6 +88,17 @@ contract Goldrush {
           "Transfer failed."
         );
         products[_index].sold++;
+    }
+
+    function changePrice(uint _index, uint _price) public onlyOwner(_index) {
+        products[_index].price = _price;
+    }
+
+    function deleteProduct(uint _index) public onlyOwner(_index) {
+        require(_index < productsLength, "not found.");
+        delete products[_index];
+        productsLength--;
+        emit itemDeleted(_index);
     }
     
     function getProductsLength() public view returns (uint) {
