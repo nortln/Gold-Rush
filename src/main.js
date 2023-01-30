@@ -5,13 +5,15 @@ import marketplaceAbi from "../contract/marketplace.abi.json"
 import erc20Abi from "../contract/erc20.abi.json"
 
 const ERC20_DECIMALS = 18
-const MPContractAddress = "0x10aA60AC8Df395bB02611E743EF8B154646cF590"
+const MPContractAddress = "0x05227C5c1C4335c1230c289B96730eF04d5bdD45"
 const cUSDContractAddress = "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1"
 
 let kit
 let contract
 let products = []
 
+
+//connectign a celo wallet to the dapp
 const connectCeloWallet = async function () {
   if (window.celo) {
     notification("⚠️ Please approve this DApp to use it.")
@@ -36,6 +38,7 @@ const connectCeloWallet = async function () {
 }
 
 
+//function to approve an address to spend money
 async function approve(_price) {
   const cUSDContract = new kit.web3.eth.Contract(erc20Abi, cUSDContractAddress)
 
@@ -45,12 +48,17 @@ async function approve(_price) {
   return result
 }
 
+
+//fetching account balance
 const getBalance = async function () {
   const totalBalance = await kit.getTotalBalance(kit.defaultAccount)
   const cUSDBalance = totalBalance.cUSD.shiftedBy(-ERC20_DECIMALS).toFixed(2)
   document.querySelector("#balance").textContent = cUSDBalance
 }
 
+
+
+//fetching all products from the smart contract
 const getProducts = async function() {
   const _productsLength = await contract.methods.getProductsLength().call()
   const _products = []
@@ -77,11 +85,14 @@ const getProducts = async function() {
 function renderProducts() {
   document.getElementById("marketplace").innerHTML = ""
   products.forEach((_product) => {
+    if(_product.owner !="0x0000000000000000000000000000000000000000"){
     const newDiv = document.createElement("div")
     newDiv.className = "col-md-4"
     newDiv.innerHTML = productTemplate(_product)
     document.getElementById("marketplace").appendChild(newDiv)
+  }
   })
+
 }
 
 function productTemplate(_product) {
@@ -109,39 +120,43 @@ function productTemplate(_product) {
           }>
             Buy for ${_product.price.shiftedBy(-ERC20_DECIMALS).toFixed(2)} cUSD
           </a>
-          <a class="btn btn-md btn-outline-primary delete" id="delete">Delete</a>
+          <a class="btn btn-md btn-outline-primary delete" id=${
+            _product.index} >Delete</a>
         </div>
       </div>
     </div>
   `
 }
 
+
+
 document.querySelector("#marketplace").addEventListener("click", async (e) => {
     if (e.target.className.includes("delete")) {
       const index = e.target.id
-      await deleteProduct(0)
-      alert("deleted")
+      notification("deleting product")
+      await deleteProduct(index)
+    
      
   }
 })
 
-async function deleteProduct(index) {
-    // check if user is authorized to delete product
-    if (kit.defaultAccount === products[index].owner) {
-        // call deleteProduct method on the smart contract
-        const response = await contract.methods.deleteProduct(index).send({from: kit.defaultAccount});
-        if (response.status) {
-            // if successful, remove product from products list and re-render products
-            products.splice(index, 1);
-            renderProducts();
-        } else {
-            console.error("Failed to delete product:", response);
-        }
-    } else {
-        console.error("Unauthorized to delete product");
-    }
-}
 
+//function to delete a product
+async function deleteProduct(index) {
+
+      try{
+           // call deleteProduct method on the smart contract
+            const response = await contract.methods.
+            deleteProduct(index).
+            send({from: kit.defaultAccount});
+
+            getProducts()
+
+      }catch(e){
+        notification("We are having trouble deleting th e product")
+      }
+    
+}
 
 
 function identiconTemplate(_address) {
@@ -163,6 +178,8 @@ function identiconTemplate(_address) {
   `
 }
 
+
+
 function notification(_text) {
   document.querySelector(".alert").style.display = "block"
   document.querySelector("#notification").textContent = _text
@@ -172,6 +189,8 @@ function notificationOff() {
   document.querySelector(".alert").style.display = "none"
 }
 
+
+//when the window loads for the first time
 window.addEventListener("load", async () => {
   notification("⌛ Loading...")
   await connectCeloWallet()
@@ -182,6 +201,10 @@ window.addEventListener("load", async () => {
 
 
 
+
+
+
+//function to save a product
 document
   .querySelector("#newProductBtn")
   .addEventListener("click", async (e) => {
@@ -206,6 +229,11 @@ document
     getProducts()
   })
 
+
+
+
+  
+//function to buy a product
 document.querySelector("#marketplace").addEventListener("click", async (e) => {
   if (e.target.className.includes("buyBtn")) {
     const index = e.target.id
